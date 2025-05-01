@@ -3,14 +3,49 @@ from django.shortcuts import render
 from .forms import BookingForm
 from .models import Menu
 from django.core import serializers
-from .models import Booking
+from .models import Booking, MenuItem, Booking
+from .serializers import MenuItemSerializer, UserSerializer, BookingItemSerializer
 from datetime import datetime
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
+from rest_framework.decorators import api_view
+from rest_framework import generics, viewsets, permissions
+from django.contrib.auth.models import User
 
 
-# Create your views here.
+
+
+#APIs
+
+class BookingViewSet(viewsets.ModelViewSet):
+   queryset = Booking.objects.all()
+   serializer_class = BookingItemSerializer
+   permission_classes = [permissions.IsAuthenticated] 
+
+
+class MenuItemViewSet(viewsets.ModelViewSet):
+   queryset = MenuItem.objects.all()
+   serializer_class = MenuItemSerializer
+   permission_classes = [permissions.IsAuthenticated] 
+
+class UserViewSet(viewsets.ModelViewSet):
+   queryset = User.objects.all()
+   serializer_class = UserSerializer
+   permission_classes = [permissions.IsAuthenticated] 
+
+
+
+class MenuItemsView(generics.ListCreateAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+
+class SingleMenuItemView(generics.RetrieveUpdateAPIView, generics.DestroyAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+
+
+# Templates.
 def home(request):
     return render(request, 'index.html')
 
