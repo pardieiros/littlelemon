@@ -81,6 +81,16 @@ REST_FRAMEWORK = {
     ],
 }
 
+DJOSER = {
+    'USER_ID_FIELD': 'id',
+    'LOGIN_FIELD': 'email',        
+    'SERIALIZERS': {
+        'user_create': 'restaurant.serializers.UserCreateSerializer',
+        'user': 'restaurant.serializers.UserSerializer',
+    },
+    'TOKEN_MODEL': 'rest_framework.authtoken.models.Token',
+}
+
 WSGI_APPLICATION = 'littlelemon.wsgi.application'
 
 

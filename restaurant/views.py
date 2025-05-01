@@ -95,7 +95,8 @@ def bookings(request):
             booking = Booking(
                 first_name=data['first_name'],
                 reservation_date=data['reservation_date'],
-                reservation_slot=data['reservation_slot'],
+                reservation_time=data['reservation_time'],
+                party_size=data.get('party_size', 1),
             )
             booking.save()
         else:

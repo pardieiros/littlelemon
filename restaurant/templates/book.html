@@ -5,113 +5,100 @@
 <section>
   <article>
     <h1>Make a reservation</h1>
-    <!--Begin row-->
     <div class="row">
-      <!--Begin col-->
       <div class="column">
-          <form method="POST" id="form">
-            {% csrf_token %}
-            <p>
-              <label for="first_name">Name:</label>
-              <input type="text" placeholder="Your Name" maxlength="200" required id="first_name">
-            </p>
-            <p>
-              <label for="reservation_date">Date:</label>
-              <input type="date" id="reservation_date" required>
-            </p>
-            <p>
-              <label for="reservation_slot">Reservation time:</label>
-              <select id="reservation_slot">
-                <option value="0" disabled>Select time</option>
-              </select>
-            </p>
-            <button type="button" id="button">Reserve</button>
-          </form>
+        <form id="form">
+          {% csrf_token %}
+          {{ form.as_p }}
+          <button id="button" type="button">Reserve</button>
+        </form>
       </div>
-      <!--End col-->
-
-      <!--Begin col-->
       <div class="column">
         <h2>Bookings For <span id="today"></span></h2>
-        <div id="bookings">
-          <!-- filled by JavaScript -->
-        </div>
+        <div id="bookings">Loading…</div>
       </div>
-      <!--End col-->
     </div>
-    <!--End row-->
   </article>
 </section>
+{% comment %}
+  Meta tag para capturar facilmente o CSRF no JS
+{% endcomment %}
+<meta name="csrf-token" content="{{ csrf_token }}">
 <script>
-  // initialize date input to today
-  const date = new Date();
-  const formatted = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-  document.getElementById('reservation_date').value = formatted;
+  const API = "{% url 'booking-list' %}"; 
+  const csrftoken = document.querySelector('meta[name="csrf-token"]').content;
+
+  // Seta o datepicker para hoje
+  const dateInput = document.getElementById('reservation_date');
+  const today = new Date();
+  const formatted = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  dateInput.value = formatted;
+  document.getElementById('today').innerText = formatted;
+
+  // Função para formatar horas no select
+  function formatTime(slot) {
+    const ampm = slot < 12 ? 'AM' : 'PM';
+    const h = slot % 12 === 0 ? 12 : slot % 12;
+    return `${h} ${ampm}`;
+  }
+
+  // Busca reservas do dia
+  async function getBookings(date) {
+    date = date || dateInput.value;
+    document.getElementById('today').innerText = date;
+    // Nota: use o nome do campo do serializer, assumindo que ele é reservation_date
+    const res = await fetch(`${API}?reservation_date=${date}`);
+    const data = await res.json();
+
+    // popula lista de horários ocupados
+    const reserved = data.map(item => parseInt(item.reservation_time.split(':')[0], 10));
+    // exibe nomes
+    const listing = data.length
+      ? data.map(item => `<p>${item.first_name} – ${formatTime(reserved.shift())}</p>`).join('')
+      : '<p>No bookings</p>';
+    document.getElementById('bookings').innerHTML = listing;
+
+    // constrói o <select> de horários (11–19)
+    let options = '<option disabled>Select time</option>';
+    for (let i = 11; i < 20; i++) {
+      const used = reserved.includes(i);
+      options += `<option value="${i}"${used?' disabled':''}>${formatTime(i)}</option>`;
+    }
+    document.getElementById('reservation_slot').innerHTML = options;
+  }
+
+  // Inicializa
   getBookings();
 
-  // Step 10: listen for changes on reservation_date
-  document.getElementById('reservation_date')
-    .addEventListener('change', () => getBookings());
+  // Recarrega ao mudar data
+  dateInput.addEventListener('change', e => getBookings(e.target.value));
 
-  function getBookings() {
-    let reserved_slots = [];
-    const date = document.getElementById('reservation_date').value;
-    document.getElementById('today').innerText = date;
+  // Submissão da reserva
+  document.getElementById('button').addEventListener('click', async () => {
+    const payload = {
+      first_name:   document.getElementById('first_name').value,
+      reservation_date: document.getElementById('reservation_date').value,
+      reservation_time: document.getElementById('reservation_slot').value + ':00',
+      party_size:   parseInt(document.getElementById('party_size').value, 10)
+    };
 
-    fetch("{% url 'bookings' %}?date=" + date)
-      .then(r => r.json())
-      .then(data => {
-        reserved_slots = [];
-        let bookings = '';
-
-        // Step 11 (Part 3): process returned data
-        for (const item of data) {
-          console.log(item.fields);
-          reserved_slots.push(item.fields.reservation_slot);
-          bookings += `<p>${item.fields.first_name} - ${formatTime(item.fields.reservation_slot)}</p>`;
-        }
-
-        // Step 12 (Part 4): build the slot options dropdown
-        let slot_options = '<option value="0" disabled>Select time</option>';
-        for (let i = 11; i < 20; i++) {
-          const label = formatTime(i);
-          if (reserved_slots.includes(i)) {
-            slot_options += `<option value="${i}" disabled>${label}</option>`;
-          } else {
-            slot_options += `<option value="${i}">${label}</option>`;
-          }
-        }
-        document.getElementById('reservation_slot').innerHTML = slot_options;
-
-        // show bookings or a placeholder
-        if (bookings === '') {
-          bookings = "No bookings";
-        }
-        document.getElementById('bookings').innerHTML = bookings;
-      });
-  }
-
-  function formatTime(time) {
-    const ampm = time < 12 ? 'AM' : 'PM';
-    const t = time < 12 ? time : (time > 12 ? time - 12 : time);
-    return `${t} ${ampm}`;
-  }
-
-  // handle reservation submission
-  document.getElementById('button')
-    .addEventListener('click', () => {
-      const formdata = {
-        first_name: document.getElementById('first_name').value,
-        reservation_date: document.getElementById('reservation_date').value,
-        reservation_slot: document.getElementById('reservation_slot').value,
-      };
-
-      fetch("{% url 'bookings' %}", {
-        method: 'post',
-        body: JSON.stringify(formdata)
-      })
-      .then(r => r.text())
-      .then(() => getBookings());
+    const res = await fetch(API, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrftoken
+      },
+      body: JSON.stringify(payload)
     });
+
+    if (!res.ok) {
+      const err = await res.json();
+      return alert(`Erro ${res.status}: ${err.detail || JSON.stringify(err)}`);
+    }
+
+    // Atualiza a lista de reservas
+    getBookings();
+  });
 </script>
 {% endblock %}

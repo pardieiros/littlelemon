@@ -2,12 +2,41 @@
 <header>
   <img src="{% static 'img/logo.png' %}" />
 </header>
-<nav>
-  <ul>
+<nav class="site-nav">
+  <ul class="nav-menu">
     <li><a href="{% url 'home' %}">Home</a></li>
     <li><a href="{% url 'about' %}">About</a></li>
     <li><a href="{% url 'menu' %}">Menu</a></li>
     <li><a href="{% url 'book' %}">Book</a></li>
     <li><a href="{% url 'reservations' %}">Reservations</a></li>
   </ul>
+  <div class="auth-box">
+    {% if user.is_authenticated %}
+      <button id="btn-logout" class="btn btn-link">Logout</button>
+    {% else %}
+      <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a>
+    {% endif %}
+  </div>
 </nav>
+
+{% include 'partials/modallogin.html' %}
+
+<script>
+  // Captura o token CSRF
+  const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  
+  // Se o botão de logout existir, associa um handler
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) {
+    btnLogout.addEventListener('click', async () => {
+      const res = await fetch('/auth/token/logout/', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'X-CSRFToken': csrftoken
+        }
+      });
+    });
+  }
+  </script>
+  
